@@ -1,0 +1,8 @@
+
+Plugins: 
+========
+
+check_fjdarye100: 
+ Überwachung von Fujitsu Storagesystemen, die die MIB FJDARY-E100
+ unterstützen (ETERNUS DX80 S2). Diese Checks wurden auf Basis der 
+ checks zum Vorgängermodell (FJDARY-E60) erstellt.
