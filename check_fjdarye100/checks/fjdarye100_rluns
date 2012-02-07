@@ -65,7 +65,7 @@ def checkfunc(item, _no_params, info):
             elif rawdata[2] == '\x00':
                 return (0, "OK - RLUN is in normal state") # assumption
             else:
-                return (2, "CRIT - RLUN in unknown state %02x - %s" % (ord(rawdata[2]), txt))
+                return (2, "CRIT - RLUN in unknown state %02x" % ord(rawdata[2]) )
 
     return (3, "UNKNOWN - No RLUN %s in SNMP output" % item)
 
