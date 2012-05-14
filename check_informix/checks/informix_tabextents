@@ -1,0 +1,89 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+#
+# Example output from agent:
+# <<<informix_tabextents>>>
+# ids_shm TABEXTENTS|prs01|dbfinfo|24|24144|
+# ids_shm TABEXTENTS|prs01|nqersch|20|2054|
+# ids_shm TABEXTENTS|ntxdemo|u_k|19|44573|
+# ids_shm TABEXTENTS|prs03|repos|17|259894|
+# ids_shm TABEXTENTS|ntxdemo|repos|16|259894|
+# ids_shm TABEXTENTS|ntxdemo|sivweda|14|180801|
+# ids_shm TABEXTENTS|prs01|u_k|12|502|
+# ids_shm TABEXTENTS|ntxdemo|u_dy|12|50805|
+# ids_shm TABEXTENTS|prs03|rekopf|10|173789|
+# ids_shm TABEXTENTS|prs05|dbfinfo|10|23872|
+#
+# Order of columns (it is a table of data files, so table spaces appear multiple times)
+# 0: Servername
+# 1: List of values, seperator: '|' containing of either/or:
+# 1a:  0: 'TABEXTENTS'
+#      1: database name
+#      2: tablename
+#      3: number of table extents
+#      4: number of rows
+# 1b:  0: 'ANZ_TABS_MINEXTENT'
+#      1: number of extents
+#      2: number ob tables having at least <1>
+
+
+# Default thresholds
+# ("<Warning max entries>", "<Critical num entries>")
+informix_tabextents_default_levels = (40, 70)
+
+def inventory_informix_tabextents(info):
+    return [ (line[0], "informix_tabextents_default_levels") for line in info if line[1].startswith('TABEXTENTS|') ]
+
+def check_informix_tabextents(item, params, info):
+    warn, crit = params
+    perfdata = []
+    maxextents = -1
+    infotext = ''
+    longinfo = ''
+    for line in info:
+        if line[0] == item:
+            if line[1].startswith('TABEXTENTS|'):
+                values = line[1].split("|")
+                db = str(values[1])
+                table = str(values[2])
+                extents = int(values[3])
+                nrows = int(values[4])
+                if extents > maxextents: 
+                    maxextents = extents
+
+                if len(longinfo):
+                    longinfo += ", "
+                longinfo += "%s:%s:%d" % ( db, table, extents )
+
+    infotext = " - max %d extents  (levels at %d/%d)" % (maxextents, warn, crit )
+    if len(longinfo):
+        infotext += " - (" + longinfo +")"
+    perfdata = [("maxextents", maxextents, warn, crit)]
+    if maxextents >= crit:
+        return (2, "CRIT" + infotext, perfdata)
+    elif maxextents >= warn:
+        return (1, "WARN" + infotext, perfdata)
+    elif maxextents > 0:
+        return (0, "OK" + infotext, perfdata)
+    else:
+        return (3, "UNKNOWN" + " - list of table extents not available" )
+
+check_info['informix_tabextents'] = (check_informix_tabextents, "IDS %s table extents", 1, inventory_informix_tabextents)
+# vim: tabstop=4 shiftwidth=4 expandtab

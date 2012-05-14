@@ -6,4 +6,8 @@ check_fjdarye100:
  Plugin to check Fujitsu storage systems supporting the FJDARY-E100
  MIB like the ETERNUS DX80 S2. This checks were based on the existing 
  checks for systems supporting MIB FJDARY-E60.
- Obsolete: Included in check_mk versions > 1.1.13i3
+ Obsolete: Included in check_mk versions >= 1.2.0b1
+
+check_informix
+ Plugin to monitor IBM Informix databases.
+ ### WORK IN PROGRESS ###

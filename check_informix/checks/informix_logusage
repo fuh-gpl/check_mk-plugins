@@ -1,0 +1,93 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+#
+# Example output from agent:
+# <<<informix_logusage>>>
+# ids_shm LOGUSAGE|1|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|2|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|3|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|4|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|5|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|6|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|7|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|8|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|9|2048|5000|5000|21|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:1|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|10|2048|5000|1457|3|is_used:1|is_current:1|is_backed_up:0|is_new:0|is_archived:0|is_temp:0|is_pre_dropped:0|
+# ids_shm LOGUSAGE|11|2048|5000|5000|5|is_used:1|is_current:0|is_backed_up:1|is_new:0|is_archived:0|is_temp:0|is_pre_dropped:0|
+
+# Default thresholds
+# default levels for *free* space. float: percent,
+# integer: MB.
+informix_logusage_default_levels = (30.0, 60.0)
+
+def inventory_informix_logusage(info):
+    return [ (line[0], "informix_logusage_default_levels") for line in info if line[1].startswith('LOGUSAGE|') ]
+
+def check_informix_logusage(item, params, info):
+    warn, crit = params
+    files = {
+        "all" : 0,
+        "backed_up" : 0,
+        "new" : 0,
+        "used" : 0,
+    }
+    size = {
+        "all" : 0,
+        "backed_up" : 0,
+        "new" : 0,
+        "used" : 0,
+    }
+
+    for line in info:
+        if line[0] == item:
+            values = line[1].split("|")
+            pagesize = int(values[2])
+            logsize = int(values[3])*pagesize
+            logused = int(values[4])*pagesize
+            flags = int( values[5] ) 
+
+            files['all'] += 1
+            size['all'] += logsize
+
+            if   flags & 0x04:
+                files['backed_up'] += 1
+                size['backed_up'] += logsize
+            elif flags & 0x08:
+                files['new'] += 1
+                size['new'] += logsize
+            else:
+                files['used'] += 1
+                size['used'] += logsize
+
+    if files['all'] == 0:
+        return (3, "UNKNOWN" + " - log information not available" )
+
+    infotext = " - logusage, %d files, size %s, used %s, backed up %s, new %s (levels at %d/%d)" % \
+        ( files['all'],
+          get_bytes_human_readable(size['all']), 
+          get_bytes_human_readable(size['used']), 
+          get_bytes_human_readable(size['backed_up']), 
+          get_bytes_human_readable(size['new']), 
+                  warn, crit )
+    perfdata = [("logusage", files['all'], warn, crit)]
+    return (0, "OK" + infotext, perfdata)
+
+check_info['informix_logusage'] = (check_informix_logusage, "IDS %s logusage", 1, inventory_informix_logusage)
+# vim: tabstop=4 shiftwidth=4 expandtab

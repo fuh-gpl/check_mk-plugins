@@ -1,0 +1,68 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+#
+# Example output from agent:
+# <<<informix_locks>>>
+# ids_shm LOCKS|3|X|
+# ids_shm LOCKS|22|S|
+
+
+# Default thresholds
+# ("<Warning max entries>", "<Critical num entries>")
+informix_locks_default_levels = (70, 200)
+
+def inventory_informix_locks(info):
+    return [ (line[0], "informix_locks_default_levels") for line in info ]
+
+def check_informix_locks(item, params, info):
+    locks = -1
+    warn, crit = params
+    for line in info:
+        if line[0] == item:
+            values = (' '.join(line[1:])).split('|')
+            if str(values[0]) == 'LOCKS':
+                if locks < 0:
+                    locks = 0
+                locks += int(values[1])
+
+        if line[0] == item and len(line) > 8:
+            # start counting after the header line
+            if line[1] == 'address':
+                locks = 0
+            elif locks != -1:
+                # stop counting when reaching the footer
+                if( re.search( str("active.*total.*hash.*overflows"), str(line) ) != None ):
+                    break
+                else:
+                    locks += 1
+
+    infotext = " - %d active locks (levels at %d/%d)" % (locks, warn, crit )
+    perfdata = [("locks", locks, warn, crit)]
+    if locks == -1:
+        return (3, "UNKNOWN" + " - lock list not available" )
+    elif locks > crit:
+        return (2, "CRIT" + infotext, perfdata)
+    elif locks > warn:
+        return (1, "WARN" + infotext, perfdata)
+    else:
+        return (0, "OK" + infotext, perfdata)
+
+check_info['informix_locks'] = (check_informix_locks, "IDS %s locks", 1, inventory_informix_locks)
+# vim: tabstop=4 shiftwidth=4 expandtab

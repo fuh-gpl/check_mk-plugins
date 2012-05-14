@@ -1,0 +1,398 @@
+#!/bin/bash
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+
+# automatically export all variables fpor the following subshells
+set -a 
+
+# DEBUG-Options - only for development
+MK_CONFDIR="${MK_CONFDIR:-/tmp}"; 	# for direct call
+DEBUG_ECHO=:
+TRACE_SQL=false
+if [ "$1" == -d ]; then
+	DEBUG_ECHO=echo	
+	TRACE_SQL=:
+fi
+
+CACHE_MAXAGE=56
+ONINIT_PATH=
+
+# Source the optional configuration file for this agent plugin
+if [ -f "$MK_CONFDIR/check_informix.cfg" ]; then
+	$DEBUG_ECHO "check_informix: sourcing check_informix.cfg (global section)"
+	. $MK_CONFDIR/check_informix.cfg
+
+	# possible config:
+	# ONINIT_PATH=<path to oninit-binary>; Default is empty, which means autodetection
+	# CACHE_MAXAGE=<seconds>
+
+	# It is possible to filter INFORMIXSERVERs totally. Just add the following to
+	# the check_informix.cfg file:
+	#
+	#   EXCLUDE_<informixserver>="ALL"
+	#
+	# Another option is to filter single checks for a given INFORMIXSERVER or 
+	# for all INFORMIXSERVERs . Just add lines as follows to the check_informix.cfg 
+	# file. One service per line:
+	#
+	#   EXCLUDE_<informixserver>="<service list>"
+	#    or
+	#   ALL_EXCLUDE="<service list>"
+	#
+	# For example skip informix_logusage and informix_locks checks
+	# for the instance "ids_shm".
+	#
+	#   EXCLUDE_ids_shm="informix_logusage informix_locks"
+	# 
+	# To skip informix_logusage and informix_locks alltogether, do:
+	#   ALL_EXCLUDE="informix_logusage informix_locks"
+	#
+	#
+	# This check uses a cache file to prevent problems with long running
+	# SQL queries. It starts building a cache when
+	#   a) no cache is present or the cache is too old and
+	#   b) the cache is not currently being built
+	# The cache is used for $CACHE_MAXAGE seconds. The CACHE_MAXAGE
+	# option is pre-set but can be changed in check_informix.cfg.
+
+
+fi
+
+
+# PART 1: 
+# see if a previous call has already detected the path to any installed oninit
+# binary. If not (or if the binary got removed) start a new detection and save
+# the path for later calls.
+if [ -z "$ONINIT_PATH" -o ! -x "$ONINIT_PATH" ]; then
+	if [ -f $MK_CONFDIR/check_informix.oninit.last ]; then 
+		. $MK_CONFDIR/check_informix.oninit.last
+	fi
+fi
+
+# if ONINIT_PATH is meither configured nor saved from a previous call -> start autodetection
+if [ -z "$ONINIT_PATH" -o ! -x "$ONINIT_PATH" ]; then
+	$DEBUG_ECHO "trying to detect path to a running oninit proc"
+	ONINIT=$(UNIX95=true ps ax  | grep oninit | grep -v grep | head -1 | awk '{print $1 " " $5}')
+	if [ -z "$ONINIT" ]; then
+		$DEBUG_ECHO "no oninit running"	
+		exit 0
+	fi
+
+	ONINIT_PATH=${ONINIT#* }
+	ONINIT_PID=${ONINIT% *}
+	case "$ONINIT_PATH" in
+	/*)	$DEBUG_ECHO "path found (via ps)"
+		;;
+	*)	# BUG not platform independent!
+		$DEBUG_ECHO "get path via /proc"
+		ONINIT_PATH=$(ls -l /proc/$ONINIT_PID/exe 2>/dev/null| sed 's/.* //')
+		;;
+	esac
+
+	if [ -z "$ONINIT_PATH" -o ! -f "$ONINIT_PATH" ]; then
+		echo "check_informix: unable to find path to oninit" >&2
+		exit 1
+	fi
+
+	# running oninit found
+	( 
+		echo "# check_informix: path to running oninit detected - $(date)"
+		echo "ONINIT_PATH=\"$ONINIT_PATH\""
+	) > $MK_CONFDIR/check_informix.oninit.last
+fi
+
+# ok, so we have at least 1 IDS-Instance installed:
+$DEBUG_ECHO "oninit-Path: '$ONINIT_PATH'"
+
+
+# we need waitmax to make shure dbaccess cannot hang forever
+WAITMAX=$(type -p waitmax)
+
+# Derive the path to the onstat-binary belonging to the detected oninit-binary. The call
+# 'onstat -g dis' gives a list of all 'servers'. We need to set INFORMIXDIR bevor calling
+# onstat:
+# Example output:
+# 
+# IBM Informix Dynamic Server Version 11.50.FC7GE -- On-Line -- Up 1 days 20:38:07 -- 2840600 Kbytes
+# There are 1 servers found
+# Server        : ids_shm
+# Server Number : 0
+# Server Type   : IDS
+# Server Status : Up
+# Server Version: IBM Informix Dynamic Server Version 11.50.FC7GE
+# Shared Memory : 0x44000000
+# INFORMIXDIR   : /home/informix/IDS
+# ONCONFIG      : /home/informix/IDS/etc/onconfig
+# SQLHOSTS      : /home/informix/etc/sqlhosts
+# Host          : db
+
+# we try to get as much information as possible, at least we should get INFORMIXDIR and INFORMIXSERVER
+for IDSENV in $( export INFORMIXDIR=${ONINIT_PATH%/bin*}
+		 $INFORMIXDIR/bin/onstat -g dis | \
+                        egrep '^Server[         ]*:|^Server Number[     ]*:|^INFORMIX|^SQLHOSTS|^ONCONFIG' | \
+                        sed -e 's/Server Number/SERVERNUM/'             \
+                            -e 's/Server/INFORMIXSERVER/'               \
+                            -e 's/SQLHOSTS/INFORMIXSQLHOSTS/'           \
+                            -e 's/[     ]*:[    ]*/=/' |                \
+                         tr '\n' ';' | \
+                        sed -e 's/;$/\n/' -e 's/;\(INFORMIXSERVER=[^;]*;\)/\n\1/g' 
+
+		) ; do
+	
+	# same example:
+	# INFORMIXSERVER=ids_shm;SERVERNUM=0;INFORMIXDIR=/home/informix/IDS;ONCONFIG=/home/informix/IDS/etc/onconfig;INFORMIXSQLHOSTS=/home/informix/etc/sqlhosts
+	$DEBUG_ECHO "IDSENV found: $IDSENV"
+
+	# start a subshell to keep the environment in the main loop clean
+	( 
+		# set Environment
+		eval $IDSENV
+
+		# now build the excludelist as a sum of the specific and the global excludelist
+		EXCLUDE="EXCLUDE_$INFORMIXSERVER"
+		EXCLUDE="${!EXCLUDE}"
+		if [ "$EXCLUDE" = "ALL" ]; then
+			# skip this server alltogether
+			continue
+		fi
+
+		# append global excludes
+		EXCLUDE="$EXCLUDE $ALL_EXCLUDE"
+
+		# If the cache file exists, output it, regardless of its age. If it's outdated
+		# then it will be recreated *asynchronously*, we know the new contents will not 
+		# be available here anyway.
+		CACHE_FILE=$MK_CONFDIR/check_informix_${INFORMIXSERVER}.cache
+		CACHE_FILE_AGE_OK=N
+		CACHE_AGE=0
+		if [ -s "$CACHE_FILE" ] ; then 
+
+			
+			# see, if the cache has to be recreated later
+			NOW=$(date +%s)
+			MTIME=$(stat -c %Y $CACHE_FILE)
+			CACHE_AGE=$(($NOW - $MTIME))
+			if [ $CACHE_AGE -le $CACHE_MAXAGE ]; then
+				# cachefile still ok, don't recreate
+				$DEBUG_ECHO "check_informix: keeping cachefile (age: $CACHE_AGE seconds, maxage: $CACHE_MAXAGE)"
+				CACHE_FILE_AGE_OK=Y
+			fi
+
+			$DEBUG_ECHO "check_informix: using existing $CACHE_FILE"
+			cat "$CACHE_FILE"
+		fi
+		
+		# If the cachefile is outdated and there is no other task already running (*.new file present)
+		# start to gather the instance information in the background.
+		if [ "$CACHE_FILE_AGE_OK" = "N"  -a ! -e "$CACHE_FILE.new" ]; then
+			$DEBUG_ECHO "check_informix: now checking '$INFORMIXSERVER' asynchronously"
+			# get this all redirected to $CACHE_FILE
+			(
+				# get an extra set of tempfiles for this subshell and make shure they are 
+				# cleaned up on exit.
+				TMPDIR=$(mktemp -d /tmp/check_informix.XXXXXXXX) || exit 1
+				SQLFILE=$TMPDIR/commands.sql
+				RESULTFILE=$TMPDIR/unloads.csv
+				TMPFILE=$TMPDIR/tmpfile
+
+				# clean up tempfiles on exit and ignore HUP since we're backgrounding.
+				trap "rm -rf $TMPDIR" EXIT SIGINT SIGQUIT SIGTERM
+				trap "" SIGHUP
+
+				PATH=$INFORMIXDIR/bin:$PATH
+
+				# check if 'onstat -g dis' provided all necessary environment variables and 
+				# try to set them via 'onstat -g env' otherwise
+				# DB HAS TO BE RUNNING
+				if [ -z "$INFORMIXSQLHOSTS" -o -z "$ONCONFIG" ]; then
+					onstat -g env | egrep 	-e '^INFORMIXSQLHOSTS' 		\
+								-e '^ONCONFIG' | 		\
+						sed 	-e 's/[         ][      ]*/=/' > $TEMPFILE
+					. $TMPFILE
+					# same example:
+					# INFORMIXSQLHOSTS=/home/informix/etc/sqlhosts
+					# ONCONFIG=/home/informix/IDS/etc/onconfig
+					# cat $TMPFILE
+				fi
+
+
+				# define helper functions:
+				# sql - select / SMI-Tables
+				function sql () {
+					db="sysmaster"
+					sqltxt="$1"
+					maxseconds=10
+					dbaccess_par=
+					
+					export DBDELIMITER="|"
+					
+					if [ -z "$WAITMAX" ]; then
+						echo "SKIPPED - waitmax not installed"
+						return
+					fi
+					> $RESULTFILE	
+					echo "set isolation to dirty read; unload to $RESULTFILE $sqltxt" > $SQLFILE
+					if $TRACE_SQL; then
+						waitmax $maxseconds dbaccess -e ${db} $SQLFILE 2>&1
+					else
+						waitmax $maxseconds dbaccess ${db} $SQLFILE >/dev/null 2>&1
+					fi
+					cat $RESULTFILE
+				}
+
+				# Call onstat
+				function onst () {
+					maxseconds=5
+					if [ -z "$WAITMAX" ]; then
+						echo "SKIPPED - waitmax not installed"
+						return
+					fi
+					$WAITMAX $maxseconds onstat $@  2>&1
+					ret=$?
+					return $ret
+				}
+
+				# outputfilter - supress empty lines and prepend INFORMIXSERVER to each line, that 
+				# does not start with '<<<' (the checknames).
+				function format_output () {
+					PREFIX="${INFORMIXSERVER}"
+					# If INFORMIXSERVER is not enough to be unique (not sure if that is possible) we 
+					# could use SERVERNUM to be unique. 
+					# PREFIX="${INFORMIXSERVER}-$SERVERNUM"
+					cat - | egrep -v "^$" | sed "s/^\(^\<\<\<\)/$PREFIX /"
+				}
+
+				# if the given checkname ($1) is part of the excludelist ($2) return 1. Otherwise
+				# output the checkheader and return 0
+                                function do_check () {
+                                        checkname="$1"
+                                        excludelist="$2"
+                                        if echo "$excludelist" | grep -qe "\<${checkname}\>"; then
+                                                return 1
+                                        fi
+					echo "<<<$checkname>>>"
+                                        return 0
+                                }
+
+
+				# Serverstatus
+				# Only execute checks when not filtered
+				if do_check "informix_status" "$EXCLUDE"; then
+					# example output of 'onstat -V': 'IBM Informix Dynamic Server Version 11.70.UC4DE Software Serial Number AAA#B000000'
+
+					# standalone or part of a 'high-availibility' environment
+					SERVERVERSION="$(onst  -V | sed -e 's/Software Serial.*$//' -e 's/^[^0-9]*//')"
+
+					# Using a tempfile because we're interested in the onstat-returncode and don't want to
+					# fiddle with PIPESTATUS here.
+					onst - >$TMPFILE 2>&1
+					STATUS_CODE="$?"
+					# return- codes of 'onstat -'
+					# -1|255  "Offline" 
+					# 0 	"Initialisation"
+					# 1 	"Quiescent"
+					# 2 	"Recovery" 
+					# 3 	"Backup"
+					# 4 	"Shutdown"
+					# 5 	"On-Line"
+					# 6 	"Abort"
+					# 7 	"Single-User"
+					# example onstat output:
+					#   IBM Informix Dynamic Server Version 11.50.UC7IE -- On-Line -- Up 00:10:45 -- 369224 Kbytes
+					#   Blocked:ARCHIVE
+					# Get first two lines and join them with an extra '--', the second line is only
+					# present when the server id blocked.
+					STATUS_TEXT="$(grep -v '^$' $TMPFILE | head -2 | sed 's/$/ --/' | tr '\n' ' ')"
+
+					echo "SERVER|${INFORMIXDIR}|${SERVERNUM}|${SERVERVERSION}|${STATUS_CODE}|${STATUS_TEXT}"
+
+				fi | format_output
+
+				if do_check "informix_sessions" "$EXCLUDE"; then
+					# don't count our own session
+					sql "select 'SESSIONS', (count(*)-1)::int from syssessions"
+				fi | format_output
+
+				if do_check "informix_locks" "$EXCLUDE"; then
+					# don't count our own session
+					sql "select 'LOCKS', (count(*)-1)::int, type from syslocks group by type"
+				fi  | format_output
+
+				if do_check "informix_tabextents" "$EXCLUDE"; then
+					# we add 'nrows>0' to exclude indices
+					sql "
+					select first 10 
+						'TABEXTENTS',
+						trim(n.dbsname) db, 
+						trim(n.tabname) tab, 
+						h.nextns extents, 
+						nrows
+					from sysptnhdr h, systabnames n
+					where h.partnum = n.partnum
+					and nrows > 0
+					and n.dbsname not in ( 'sysadmin', 'sysuser', 'sysutils', 'sysmaster' )
+					and n.tabname not like 'sys%'
+					order by extents desc "
+				fi  | format_output
+
+				if do_check "informix_dbspaces" "$EXCLUDE"; then
+					sql "
+					select 
+						trim(sd.name) || ' DBSPACE',
+						sd.dbsnum,
+						sd.is_temp,
+						sd.flags,
+						'CHUNK',
+						sc.fname,
+						sc.pagesize,
+						sc.chksize,
+						sc.nfree,
+						sc.flags,
+						trim(sc.mfname),
+						sc.mflags
+					from sysdbspaces sd, syschunks sc
+					where sd.dbsnum = sc.dbsnum
+					order by sd.name
+					"
+				fi  | format_output
+
+				# # TODO
+				# if do_check "informix_logusage" "$EXCLUDE"; then
+				#	sql "
+				#	select 'LOGUSAGE',
+				#		number,
+				#		sh_pagesize,
+				#		size, 
+				#		used, 
+				#		flags,
+				#		'is_used:'||is_used,
+				#		'is_current:'||is_current,
+				#		'is_backed_up:'||is_backed_up, 
+				#		'is_new:'||is_new, 
+				#		'is_archived:'||is_archived, 
+				#		'is_temp:'||is_temp, 
+				#		'is_pre_dropped:'||is_pre_dropped
+				#	from syslogs, sysshmvals
+				#	order by number
+				#	"
+				# fi | format_output
+			) >$CACHE_FILE.new 2>&1 && mv $CACHE_FILE.new $CACHE_FILE || rm -f $CACHE_FILE* &
+		fi
+	)
+done
+exit 0

@@ -1,0 +1,83 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+#
+# Example output from agent:
+# <<<informix_status>>>
+# ids_shm SERVER|/home/informix/IDS|0|11.50.FC7GE |5|IBM Informix Dynamic Server Version 11.50.FC7GE -- On-Line -- Up 4 days 18:57:39 -- 23614 12 Kbytes --
+#
+# return-codes of 'onstat -'
+# returncode : [ informationtext,  nagiosstatus ]
+informix_status_onstat_codes = {
+    "-1" : [ "Offline", 2 ],
+   "255" : [ "Offline", 2 ],
+     "0" : [ "Initialisation", 1 ],
+     "1" : [ "Quiescent", 2 ],
+     "2" : [ "Recovery", 1 ],
+     "3" : [ "Backup", 1 ],
+     "4" : [ "Shutdown", 2 ],
+     "5" : [ "On-Line", 0 ],
+     "6" : [ "Abort", 2 ],
+     "7" : [ "Single-User", 1 ],
+}
+
+def inventory_informix_status(info):
+    # print info
+    inventory = []
+    return [ (line[0], None) for line in info if line[1].startswith('SERVER|') ]
+
+def check_informix_status(item, params, info):
+    servername = item
+    servernum = '' 
+    serverversion = ''
+    informixdir = '' 
+    ids_status_text = "UNKNOWN"
+    status = 3
+    onstat_output = ''
+    blocked = ''
+    infotext = ''
+
+
+    for line in info:
+        if line[0] == item:
+            # might not win a beauty-price - tell me nicer ways to do this in python!
+            values = (' '.join(line[1:])).split('|')
+            informixdir = str(values[1])
+            servernum = int(values[2])
+            serverversion = str(values[3])
+            ids_status_code = str(values[4])
+            onstat_output = str(values[5]).split('--')
+
+            infotext = " - (server: %s, number: %s, directory: %s, version: %s)" % ( servername, servernum, informixdir, serverversion )
+            if ids_status_code in informix_status_onstat_codes:
+                ids_status_text, status = informix_status_onstat_codes[ids_status_code]
+                infotext += " status '%s'" % ids_status_text
+
+            
+            if len(onstat_output) >= 4:
+                blocked = onstat_output[4].strip()
+                if blocked.startswith("Blocked:"):
+                    status = max(status,1)
+                    infotext +=", blocked (reason %s)" % blocked.split(':')[1]
+
+    return ( status, nagios_state_names[status] +  infotext  )
+
+# note: 'IDS %s  status' has two blanks to keep the Status check on top 
+check_info['informix_status'] = (check_informix_status, "IDS %s  status", 1, inventory_informix_status)
+# vim: tabstop=4 shiftwidth=4 expandtab

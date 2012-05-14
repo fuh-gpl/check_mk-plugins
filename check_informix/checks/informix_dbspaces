@@ -1,0 +1,197 @@
+#!/usr/bin/python
+# -*- encoding: utf-8; py-indent-offset: 4 -*-
+# 
+# check_informix - check_mk plugin to monitor IBM Informix databases
+# Copyright (c) 2012 FuH Entwicklungsgesellschaft mbH, Umkirch, Germany. All rights reserved.
+# Author: Philipp Hoefflin, 2012, hoefflin+cmk@fuh-e.de
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation in version 2.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 675 Mass Ave, Cambridge MA 02139, USA or see <http://www.gnu.org/licenses/>
+# 
+# Example output from agent:
+# <<<informix_dbspaces>>>
+# ids_shm datadbs DBSPACE|5|0|262145|CHUNK|/home/informix/DBSDATA/data05dbs|2048|1024000|556071|196672|||
+# ids_shm datadbs DBSPACE|5|0|262145|CHUNK|/home/informix/DBSDATA/data02dbs|2048|1024000|25361|196672|||
+# ids_shm datadbs DBSPACE|5|0|262145|CHUNK|/home/informix/DBSDATA/data03dbs|2048|1024000|116415|196672|||
+# ids_shm datadbs DBSPACE|5|0|262145|CHUNK|/home/informix/DBSDATA/data04dbs|2048|1024000|317143|196672|||
+# ids_shm datadbs DBSPACE|5|0|262145|CHUNK|/home/informix/DBSDATA/data01dbs|2048|1024000|1455|196672|||
+# ids_shm logdbs DBSPACE|2|0|262145|CHUNK|/home/informix/DBSDATA/logdbs|2048|384000|3947|196672|||
+# ids_shm rootdbs DBSPACE|1|0|262145|CHUNK|/home/informix/DBSDATA/rootdbs|2048|256000|134535|196672|||
+# ids_shm tmp1dbs DBSPACE|3|1|270337|CHUNK|/home/informix/DBSDATA/tmp1dbs|2048|256000|255189|196672|||
+# ids_shm tmp2dbs DBSPACE|4|1|270337|CHUNK|/home/informix/DBSDATA/tmp2dbs|2048|256000|255197|196672|||
+
+#
+# Order of columns (it is a table of data files, so table spaces appear multiple times)
+# 0. Servername (INFORMIXSERVER)
+# 1. dbspace name
+# 2. table space name
+# 3: List of values, seperator: '|' containing:
+#  0. 'DBSPACE' - dbspace information - SMI-Table sysdbspaces
+#   1. dbspace number
+#   2. flag: is tmpspace
+#   3. dbspace flags
+#  4. 'CHUNK' - chunk informiation - SMI-Table syschunks
+#   5. filename of the chunk
+#   6. pagesize
+#   7. chunksize in pages
+#   8. free pages
+#   9. chunk flags
+#   10. name of mirror chunk - in case there is one
+#   11. flags of the mirrored chunk - in case there is one
+
+# default levels for *free* space. float: percent,
+# integer: MB.
+informix_dbspaces_default_levels = (10.0, 5.0)
+
+def inventory_informix_dbspaces(info):
+    tablespaces = set([])
+    for line in info:
+        if line[2].startswith('DBSPACE|'):
+            ts = (line[0], line[1])
+            tablespaces.add(ts)
+
+    inventory = []
+    for t in tablespaces:
+        inventory.append( ("%s.%s" % t,
+       "informix_dbspaces_default_levels"))
+    return inventory
+
+def check_informix_dbspaces(item, params, info):
+    ifxserver, tbsname = item.split('.')
+    num_files = 0           # number of chunks
+    num_avail = 0           # number of available (i.e. online) chunks
+    num_mirror_files = 0    # number of mirror chunks
+    num_mirror_avail = 0    # number of chunks
+    dbspace_size = 0    # total dbspace size in bytes
+    dbspace_used = 0    # total bytes in use
+    dbspace_free = 0    # total bytes free
+    dbspace_type = ''
+
+    for line in info:
+        if line[0] == ifxserver and line[1] == tbsname:
+            values = line[2].split("|")
+
+            # split up chunk and dbspace information
+            dbspace = {
+                "name"      : str(tbsname),
+                "number"    : int(values[1]),
+                "is_temp"   : int(values[2]),
+                "flags"     : int(values[3]),
+            }
+            chunk = {
+                "name"      : str(values[5]),
+                "pagesize"  : int(values[6]),
+                "pages"     : int(values[7]),
+                "pagesfree"     : int(values[8]),
+                "flags"     : int(values[9]),
+                "mirrorname"    : str(values[10]),
+                "mirrorflags"   : saveint(values[11]),
+            }
+
+            # Dbspace fields - same for all chunks in one dbspace
+            dbspace_type = 'Dbspace'
+            if dbspace['flags'] & 0x0010:
+                dbspace_type = 'Blobspace'
+            elif dbspace['flags'] & 0x8000:
+                dbspace_type = 'Sbspace'
+            elif dbspace['is_temp']:
+                dbspace_type = 'Tempspace'
+
+            
+            # chunk information
+            chunkmode = 'UNKNOWN'
+            if chunk['flags'] & 0x0020:
+                chunkmode = 'Offline'
+            elif chunk['flags'] & 0x0040:
+                chunkmode = 'Online'
+            elif chunk['flags'] & 0x0040:
+                chunkmode = 'Recovery'
+
+            pagesize = chunk['pagesize']
+            num_files += 1
+            if chunkmode in [ "Online" ]:
+                num_avail += 1
+                dbspace_size += pagesize * int(chunk['pages'])
+                dbspace_free += pagesize * int(chunk['pagesfree'])
+
+            # mirror-information
+            mirror_info = ''
+            if dbspace['flags'] & 0x0002:
+                mirror_info = 'mirrored'
+                num_mirror_files += 1
+                mirrormode = 'UNKNOWN'
+                if chunk['mirrorflags'] & 0x0020:
+                    mirrormode = 'Offline'
+                elif chunk['mirrorflags'] & 0x0040:
+                    mirrormode = 'Online'
+                elif chunk['mirrorflags'] & 0x0040:
+                    mirrormode = 'Recovery'
+
+                if mirrormode in [ "Online" ]:
+                    num_mirror_avail += 1
+
+
+    if dbspace_type == '':
+        return (3, "UNKNOWN" + " - dbspace information not available" )
+
+    dbspace_used = dbspace_size - dbspace_free
+    infotext = " - type %s %s, size %s, dbspace_used %s" % \
+       (mirror_info,
+        dbspace_type,
+        get_bytes_human_readable(dbspace_size),
+        get_bytes_human_readable(dbspace_used))
+
+    status = 0
+    warn, crit = params
+
+    # warn/crit level are float => percentages of max size, otherwise MB
+    if type(warn) == float:
+        warn = warn / 100.0 * dbspace_size
+    else:
+        warn *= 1024 * 1024
+
+    if type(crit) == float:
+        crit = crit / 100.0 * dbspace_size
+    else:
+        crit *= 1024 * 1024
+
+    if dbspace_free <= crit or dbspace_free <= warn:
+        infotext += ", only %s left" % get_bytes_human_readable(dbspace_free)
+        # infotext += " (levels at %s/%s)" % ( get_bytes_human_readable(warn), get_bytes_human_readable(crit))
+        if dbspace_free <= crit:
+            status = 2
+        else:
+            status = max(1, status)
+
+    infotext += " (levels at %s/%s)" % ( get_bytes_human_readable(warn), get_bytes_human_readable(crit))
+    perfdata = [ ("size", dbspace_size, dbspace_size - warn, dbspace_size - crit),
+                 ("dbspace_used", dbspace_used),
+                 ("dbspace_size", dbspace_size) ]
+
+    # if num_files != 1 or num_avail != 1:
+    infotext += ", %d data files" % (num_files)
+    if num_files != num_avail:
+        infotext += " (only %d avail)" % ( num_avail)
+        status = max(1, status)
+
+    if num_mirror_files:
+        infotext += ", %d mirror files" % (num_mirror_files)
+        if num_mirror_files != num_mirror_avail:
+            infotext += " (only %d avail)" % ( num_mirror_avail)
+            status = max(1, status)
+
+    return (status, nagios_state_names[status] + infotext, perfdata)
+
+
+check_info['informix_dbspaces'] = (check_informix_dbspaces, "IDS %s Dbspace", 1,  inventory_informix_dbspaces )
+# vim: tabstop=4 shiftwidth=4 expandtab
