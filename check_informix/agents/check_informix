@@ -367,6 +367,8 @@ for IDSENV in $( export INFORMIXDIR=${ONINIT_PATH%/bin*}
 						sc.mflags
 					from sysdbspaces sd, syschunks sc
 					where sd.dbsnum = sc.dbsnum
+					-- NO SBSPACE CURRENTLY
+					and sd.is_sbspace = 0
 					order by sd.name
 					"
 				fi  | format_output
