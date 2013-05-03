@@ -1,0 +1,16 @@
+title: IBM Informix database status
+agents: linux
+author: Philipp Hoefflin <Hoefflin@FuH-E.de>
+license: GPL
+distribution: https://github.com/fuh-gpl/check_mk-plugins
+description:
+ This check monitors the database server status (via onstat).
+
+ This check needs the Check_MK {check_informix}-plugin installed on
+ the agent.
+  
+inventory:
+  One separate check for each database found running will be created.
+
+item: 
+ The servername (INFORMIXSERVER) of the database.

@@ -50,10 +50,10 @@ for FILE in checks/*; do
 done
 
 # # checkman:
-# for FILE in checkman/*; do
-# 	echo " $FILE"
-# 	install -m 644 $FILE $PATH_CHECK_MAN/
-# done
+for FILE in checkman/*; do
+	echo " $FILE"
+	install -m 644 $FILE $PATH_CHECK_MAN/
+done
 
 for FILE in pnp-templates/*; do
 	echo " $FILE"
@@ -64,6 +64,7 @@ for FILE in agents/*; do
 	echo " $FILE"
 	install -m 644 $FILE $PATH_AGENT_PLUGINS/
 done
+
 
 for FILE in *perfometer*py; do
 	echo " $FILE"

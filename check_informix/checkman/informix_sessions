@@ -1,0 +1,36 @@
+title: IBM Informix database sessions
+agents: linux
+author: Philipp Hoefflin <Hoefflin@FuH-E.de>
+license: GPL
+distribution: https://github.com/fuh-gpl/check_mk-plugins
+description:
+ This check monitors the number of active sessions in an
+ informix database. You can set warn/crit levels.
+
+ This check needs the Check_MK {check_informix}-plugin installed on
+ the agent.
+  
+inventory:
+  One separate check for each database found running will be created.
+
+item: 
+ The servername (INFORMIXSERVER) of the database.
+  
+perfdata:
+  The check generates perfdata for the total and running sessions.
+
+perfdata:
+ One value: the current number of active sessions.
+
+examples:
+ # Set global default values to 50 sessions for
+ # warning and 100 sessions for critical
+ informix_sessions_default_levels = (50, 100)
+
+[parameters]
+warning(int): The number of active sessions triggering a warning
+critical(int): The number of active sessions making the check critical
+
+[configuration]
+informix_sessions_default_levels(int, int): Global default levels used for all checks which have no specific configuration. 
+ This is preset to {(50, 100)}.

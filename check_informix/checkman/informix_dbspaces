@@ -1,0 +1,38 @@
+title: Check various aspects of IBM Informix dbspaces
+agents: linux
+author: Philipp Hoefflin <Hoefflin@FuH-E.de>
+license: GPL
+distribution: https://github.com/fuh-gpl/check_mk-plugins
+description:
+ This check monitors the state of Informix dbspaces and chunks. It 
+ checks the free space and the status of data- and mirrorfiles.
+
+ This check needs the Check_MK {check_informix}-plugin installed on
+ the agent.
+
+inventory:
+ One separate check will be created for each dbspace.
+
+item: 
+ A string composited of the servername (INFORMIXSERVER) and the 
+ dbspace name, separated by a dot, for example {"ids_shm.rootdbs"}.
+
+perfdata:
+ Three values in bytes: size, the WARN level and the CRIT level.
+ 
+examples:
+ # Set levels for free space to 10% (WARN) and 5% (CRIT)
+ informix_dbspaces_default_levels = ( 10.0, 5.0 )
+
+[parameters]
+warning(int/float): free space WARN level as a percentage (float) or in MB (int).
+critical(int/float): free space CRIT level as a percentage (float) or in MB (int).
+
+[configuration]
+informix_dbspaces_default_levels(int/float, int/float): By default a 
+ tuple containing the warn and crit levels for free space. Supported 
+ types (int / float). If this is a float, it is considered as
+ percentage of the size of the dbspace. If it is an integer, it is
+ considered to be MB of free space. If the space drops to this level 
+ or below, the check will get into warning state. Default is {(10.0, 5.0)}.
+
