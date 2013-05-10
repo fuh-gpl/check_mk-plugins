@@ -9,5 +9,11 @@ check_fjdarye100:
  Obsolete: Included in check_mk versions >= 1.2.0b1
 
 check_informix
- Plugin to monitor IBM Informix databases.
- ### WORK IN PROGRESS ###
+ Plugin to monitor IBM Informix databases. Currently the following
+ checks are available:
+ informix_dbspaces: Check various aspects of IBM Informix dbspaces
+ - informix_locks: Check number of locks in an IBM Informix database
+ - informix_logusage: Check logical log usage of an IBM Informix database
+ - informix_sessions: Active database sessions
+ - informix_status: IBM Informix database status
+ - informix_tabextents: Monitor the number of table extents
