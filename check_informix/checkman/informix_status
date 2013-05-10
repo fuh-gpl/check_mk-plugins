@@ -7,7 +7,7 @@ description:
  This check monitors the database server status (via onstat).
 
  This check needs the Check_MK {check_informix}-plugin installed on
- the agent.
+ the agent. It also needs the waitmax-utility shipped with {check_mk}.
   
 inventory:
   One separate check for each database found running will be created.

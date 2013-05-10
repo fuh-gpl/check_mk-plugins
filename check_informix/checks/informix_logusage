@@ -41,6 +41,7 @@ def inventory_informix_logusage(info):
     return [ (line[0], "informix_logusage_default_levels") for line in info if line[1].startswith('LOGUSAGE|') ]
 
 def check_informix_logusage(item, params, info):
+    status = 0
     warn, crit = params
     files = {
         "all" : 0,
@@ -79,15 +80,32 @@ def check_informix_logusage(item, params, info):
     if files['all'] == 0:
         return (3, "UNKNOWN" + " - log information not available" )
 
-    infotext = " - logusage, %d files, size %s, used %s, backed up %s, new %s (levels at %d/%d)" % \
+    if type(warn) == float:
+        warn = warn / 100.0 * size['all']
+    else:
+        warn *= 1024 * 1024
+    if type(crit) == float:
+        crit = crit / 100.0 * size['all']
+    else:
+        crit *= 1024 * 1024
+
+    infotext = " - logusage, %d files, size %s, used %s (levels at %s/%s)" % \
         ( files['all'],
           get_bytes_human_readable(size['all']), 
           get_bytes_human_readable(size['used']), 
-          get_bytes_human_readable(size['backed_up']), 
-          get_bytes_human_readable(size['new']), 
-                  warn, crit )
-    perfdata = [("logusage", files['all'], warn, crit)]
-    return (0, "OK" + infotext, perfdata)
+          get_bytes_human_readable(warn), 
+          get_bytes_human_readable(crit) )
+
+    if size['used'] >= crit or size['used'] >= warn:
+        if size['used'] >= crit:
+            status = 2
+        else:
+            status = max(1, status)
+
+    perfdata = [ ("logfiles", files['all'] ), 
+                 ("size", size['all'], warn, crit),
+                 ("used", size['used'])]
+    return (status, "OK" + infotext, perfdata)
 
 check_info['informix_logusage'] = (check_informix_logusage, "IDS %s logusage", 1, inventory_informix_logusage)
 # vim: tabstop=4 shiftwidth=4 expandtab

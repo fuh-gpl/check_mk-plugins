@@ -373,26 +373,26 @@ for IDSENV in $( export INFORMIXDIR=${ONINIT_PATH%/bin*}
 					"
 				fi  | format_output
 
-				# # TODO
-				# if do_check "informix_logusage" "$EXCLUDE"; then
-				#	sql "
-				#	select 'LOGUSAGE',
-				#		number,
-				#		sh_pagesize,
-				#		size, 
-				#		used, 
-				#		flags,
-				#		'is_used:'||is_used,
-				#		'is_current:'||is_current,
-				#		'is_backed_up:'||is_backed_up, 
-				#		'is_new:'||is_new, 
-				#		'is_archived:'||is_archived, 
-				#		'is_temp:'||is_temp, 
-				#		'is_pre_dropped:'||is_pre_dropped
-				#	from syslogs, sysshmvals
-				#	order by number
-				#	"
-				# fi | format_output
+				# logusage:
+				if do_check "informix_logusage" "$EXCLUDE"; then
+				      sql "
+				      select 'LOGUSAGE',
+				      	number,
+				      	sh_pagesize,
+				      	size, 
+				      	used, 
+				      	flags,
+				      	'is_used:'||is_used,
+				      	'is_current:'||is_current,
+				      	'is_backed_up:'||is_backed_up, 
+				      	'is_new:'||is_new, 
+				      	'is_archived:'||is_archived, 
+				      	'is_temp:'||is_temp, 
+				      	'is_pre_dropped:'||is_pre_dropped
+				      from syslogs, sysshmvals
+				      order by number
+				      "
+				fi | format_output
 			) >$CACHE_FILE.new 2>&1 && mv $CACHE_FILE.new $CACHE_FILE || rm -f $CACHE_FILE* &
 		fi
 	)

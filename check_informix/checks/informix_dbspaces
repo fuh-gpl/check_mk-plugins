@@ -175,8 +175,7 @@ def check_informix_dbspaces(item, params, info):
 
     infotext += " (levels at %s/%s)" % ( get_bytes_human_readable(warn), get_bytes_human_readable(crit))
     perfdata = [ ("size", dbspace_size, dbspace_size - warn, dbspace_size - crit),
-                 ("dbspace_used", dbspace_used),
-                 ("dbspace_size", dbspace_size) ]
+                 ("used", dbspace_used) ]
 
     # if num_files != 1 or num_avail != 1:
     infotext += ", %d data files" % (num_files)

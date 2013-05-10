@@ -1,0 +1,45 @@
+title: Check logical log usage of an IBM Informix database
+agents: linux
+author: Philipp Hoefflin <Hoefflin@FuH-E.de>
+license: GPL
+distribution: https://github.com/fuh-gpl/check_mk-plugins
+description:
+ This check monitors the logical log usage of an IBM Informix database
+ You can set warn/crit levels.
+
+ This check needs the Check_MK {check_informix}-plugin installed on
+ the agent. It also needs the waitmax-utility shipped with {check_mk}.
+  
+inventory:
+  One separate check for each database found running will be created.
+
+item: 
+ The servername (INFORMIXSERVER) of the database.
+
+examples:
+ # Set global default values to 30% for
+ # warning and 60% for critical
+ informix_logusage_default_levels = (30.0, 60.0)
+
+ # Set different levels for productive systems 
+ # (having the host tag 'prod')
+  check_parameters += [
+    ( (20.0, 50.0), [ 'prod' ], ALL_HOSTS, [ "IDS .* logusage" ])
+ ]
+
+perfdata:
+ Two values: The number of logfiles and the total size in bytes.
+
+[parameters]
+warning(float): Logusage WARN as a percentage (float) or in MB (int).
+critical(float): Logusage CRIT level as a percentage (float) or in MB (int).
+
+[configuration]
+informix_logusage_default_levels(int/float, int/float): Global default 
+ levels used for all checks which have no specific configuration.  
+ Supported types (int / float). If this is a float, it is considered as
+ percentage of the overall logspace. If it is an integer, it is
+ considered to be MB of the overall logspace. If the used logspace reaches
+ or exceeds on of these levels, the check will get into warning/critical state. 
+ Default is {(30.0, 60.0)}.
+

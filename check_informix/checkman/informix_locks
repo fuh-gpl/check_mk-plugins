@@ -1,0 +1,34 @@
+title: Check number of locks in an IBM Informix database
+agents: linux
+author: Philipp Hoefflin <Hoefflin@FuH-E.de>
+license: GPL
+distribution: https://github.com/fuh-gpl/check_mk-plugins
+description:
+ This check monitors the number of locks in an IBM Informix database.
+ You can set warn/crit levels.
+
+ This check needs the Check_MK {check_informix}-plugin installed on
+ the agent. It also needs the waitmax-utility shipped with {check_mk}.
+  
+inventory:
+  One separate check for each database found running will be created.
+
+item: 
+ The servername (INFORMIXSERVER) of the database.
+
+examples:
+ # Set global default values to 70 locks for
+ # warning and 100 locks for critical
+ informix_locks_default_levels = (70, 100)
+
+perfdata:
+ One value: The number of active locks.
+
+[parameters]
+warning(int): The number of active locks triggering a warning
+critical(int): The number of active locks making the check critical
+
+[configuration]
+informix_locks_default_levels(int, int): Global default levels used 
+ for all checks which have no specific configuration. This is preset 
+ to {(70, 200)}.
