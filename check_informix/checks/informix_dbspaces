@@ -51,7 +51,9 @@
 
 # default levels for *free* space. float: percent,
 # integer: MB.
-informix_dbspaces_default_levels = (10.0, 5.0)
+factory_settings["informix_dbspaces_defaults"] = {
+    "levels" : ( 10.0, 5.0 )
+}
 
 def inventory_informix_dbspaces(info):
     tablespaces = set([])
@@ -62,8 +64,7 @@ def inventory_informix_dbspaces(info):
 
     inventory = []
     for t in tablespaces:
-        inventory.append( ("%s.%s" % t,
-       "informix_dbspaces_default_levels"))
+        inventory.append( ("%s.%s" % t, {} ))
     return inventory
 
 def check_informix_dbspaces(item, params, info):
@@ -152,7 +153,7 @@ def check_informix_dbspaces(item, params, info):
         get_bytes_human_readable(dbspace_used))
 
     status = 0
-    warn, crit = params
+    warn, crit = params["levels"]
 
     # warn/crit level are float => percentages of max size, otherwise MB
     if type(warn) == float:
@@ -192,5 +193,12 @@ def check_informix_dbspaces(item, params, info):
     return (status, nagios_state_names[status] + infotext, perfdata)
 
 
-check_info['informix_dbspaces'] = (check_informix_dbspaces, "IDS %s Dbspace", 1,  inventory_informix_dbspaces )
+check_info["informix_dbspaces"] = {
+    "inventory_function"  : inventory_informix_dbspaces,
+    "check_function"      : check_informix_dbspaces,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s dbspace",
+    # "group"               : "informix_dbspaces",
+    "default_levels_variable" : "informix_dbspaces_defaults",
+}
 # vim: tabstop=4 shiftwidth=4 expandtab

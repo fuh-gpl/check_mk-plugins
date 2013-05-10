@@ -26,14 +26,16 @@
 
 # Default thresholds
 # ("<Warning max entries>", "<Critical num entries>")
-informix_locks_default_levels = (70, 200)
+factory_settings["informix_locks_defaults"] = {
+    "levels" : ( 70, 200 )
+}
 
 def inventory_informix_locks(info):
-    return [ (line[0], "informix_locks_default_levels") for line in info ]
+    return [ (line[0], {}) for line in info ]
 
 def check_informix_locks(item, params, info):
     locks = -1
-    warn, crit = params
+    warn, crit = params["levels"]
     for line in info:
         if line[0] == item:
             values = (' '.join(line[1:])).split('|')
@@ -64,5 +66,12 @@ def check_informix_locks(item, params, info):
     else:
         return (0, "OK" + infotext, perfdata)
 
-check_info['informix_locks'] = (check_informix_locks, "IDS %s locks", 1, inventory_informix_locks)
+check_info["informix_locks"] = {
+    "inventory_function"  : inventory_informix_locks,
+    "check_function"      : check_informix_locks,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s locks",
+    # "group"               : "informix_locks",
+    "default_levels_variable" : "informix_locks_defaults",
+}
 # vim: tabstop=4 shiftwidth=4 expandtab

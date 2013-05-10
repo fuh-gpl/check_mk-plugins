@@ -16,13 +16,17 @@ item:
  The servername (INFORMIXSERVER) of the database.
 
 perfdata:
- Three values: maximal table extents, the WARN level and the CRIT level.
+ One value: maximal table extents.
  
+examples:
+ # Set global default values to 40 and 70 table extents.
+ informix_tabextents_defaults = { "levels" : ( 40, 70 ) }
+
 [parameters]
-warning(int): warning level for table extent count 
-critical(int): critical level for table extent count
+parameters (dict):
+
+ {"levels"}(int): A tuple containing the warn and crit levels for the table extent thresholds. The default is (40, 70).
 
 [configuration]
-informix_tabextents_default_levels(int, int): A tuple containing the warn and
- crit levels for maximal table extent counts.  Default is {(40, 70)}.
+informix_tabe_defaults(dict): A dictionary with the optional keys mentioned in parameters.
 

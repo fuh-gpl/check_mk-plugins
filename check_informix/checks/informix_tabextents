@@ -45,14 +45,15 @@
 
 
 # Default thresholds
-# ("<Warning max entries>", "<Critical num entries>")
-informix_tabextents_default_levels = (40, 70)
+factory_settings["informix_tabextents_defaults"] = {
+    "levels" : (40, 70)
+}
 
 def inventory_informix_tabextents(info):
-    return [ (line[0], "informix_tabextents_default_levels") for line in info if line[1].startswith('TABEXTENTS|') ]
+    return [ (line[0], {}) for line in info if line[1].startswith('TABEXTENTS|') ]
 
 def check_informix_tabextents(item, params, info):
-    warn, crit = params
+    warn, crit = params["levels"]
     perfdata = []
     maxextents = -1
     infotext = ''
@@ -68,9 +69,13 @@ def check_informix_tabextents(item, params, info):
                 if extents > maxextents: 
                     maxextents = extents
 
-                if len(longinfo):
-                    longinfo += ", "
-                longinfo += "%s:%s:%d" % ( db, table, extents )
+                # show offending tables
+                if extents >= warn:
+                    if len(longinfo):
+                        longinfo += ", "
+                    else:
+                        longinfo = "tables: "
+                    longinfo += "%s:%s:%d" % ( db, table, extents )
 
     infotext = " - max %d extents  (levels at %d/%d)" % (maxextents, warn, crit )
     if len(longinfo):
@@ -85,5 +90,12 @@ def check_informix_tabextents(item, params, info):
     else:
         return (3, "UNKNOWN" + " - list of table extents not available" )
 
-check_info['informix_tabextents'] = (check_informix_tabextents, "IDS %s table extents", 1, inventory_informix_tabextents)
+check_info["informix_tabextents"] = {
+    "inventory_function"  : inventory_informix_tabextents,
+    "check_function"      : check_informix_tabextents,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s table extents",
+    # "group"               : "informix_tabextents",
+    "default_levels_variable" : "informix_tabextents_defaults",
+}
 # vim: tabstop=4 shiftwidth=4 expandtab

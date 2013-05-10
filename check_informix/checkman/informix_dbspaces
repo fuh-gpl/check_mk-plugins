@@ -22,23 +22,22 @@ perfdata:
  
 examples:
  # Set levels for free space to 10% (WARN) and 5% (CRIT)
- informix_dbspaces_default_levels = ( 10.0, 5.0 )
+ informix_dbspaces_defaults = { "levels" : ( 10.0, 5.0 ) }
 
  # Set warning to 100MB and CRIT to 50MB for log-dbspace on 
  # hosts tagged as prod servers.
   check_parameters += [
-    ( (100, 50), [ 'prod' ], ALL_HOSTS, [ "IDS .*logdbs Dbspace" ])
+    ( { "levels" : ( 100, 50) }, [ 'prod' ], ALL_HOSTS, ["IDS .*logdbs dbspace"] ),
  ]
 
 [parameters]
-warning(int/float): free space WARN level as a percentage (float) or in MB (int).
-critical(int/float): free space CRIT level as a percentage (float) or in MB (int).
+parameters (dict):
 
-[configuration]
-informix_dbspaces_default_levels(int/float, int/float): By default a 
- tuple containing the warn and crit levels for free space. Supported 
- types (int / float). If this is a float, it is considered as
+ {"levels"}: A tuple containing the warn and crit levels for free space. 
+ Supported types (int / float). If this is a float, it is considered as
  percentage of the size of the dbspace. If it is an integer, it is
  considered to be MB of free space. If the space drops to this level 
  or below, the check will get into warning state. Default is {(10.0, 5.0)}.
-
+ 
+[configuration]
+informix_dbspaces_defaults(dict): A dictionary with the optional keys mentioned in parameters.

@@ -19,16 +19,15 @@ item:
 examples:
  # Set global default values to 70 locks for
  # warning and 100 locks for critical
- informix_locks_default_levels = (70, 100)
+ informix_locks_defaults = { "levels" : ( 70, 200 ) }
 
 perfdata:
  One value: The number of active locks.
 
 [parameters]
-warning(int): The number of active locks triggering a warning
-critical(int): The number of active locks making the check critical
+parameters (dict):
+
+ {"levels"}: A tuple containing the warn and crit levels for active database locks.
 
 [configuration]
-informix_locks_default_levels(int, int): Global default levels used 
- for all checks which have no specific configuration. This is preset 
- to {(70, 200)}.
+informix_sessions_defaults(dict): A dictionary with the optional keys mentioned in parameters.

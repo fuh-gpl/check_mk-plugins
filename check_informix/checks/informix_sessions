@@ -23,15 +23,16 @@
 # ids_shm SESSIONS|22|
 
 # Default thresholds
-# ("<Warning max entries>", "<Critical num entries>")
-informix_sessions_default_levels = (50, 100)
+factory_settings["informix_sessions_defaults"] = {
+    "levels" : ( 50, 100 )
+}
 
 def inventory_informix_sessions(info):
-    return [ (line[0], "informix_sessions_default_levels") for line in info ]
+    return [ (line[0], {}) for line in info ]
 
 def check_informix_sessions(item, params, info):
     sessions = -1
-    warn, crit = params
+    warn, crit = params["levels"]
     for line in info:
         if line[0] == item:
             values = (' '.join(line[1:])).split('|')
@@ -51,5 +52,12 @@ def check_informix_sessions(item, params, info):
     else:
         return (0, "OK" + infotext, perfdata)
 
-check_info['informix_sessions'] = (check_informix_sessions, "IDS %s sessions", 1, inventory_informix_sessions)
+check_info["informix_sessions"] = {
+    "inventory_function"  : inventory_informix_sessions,
+    "check_function"      : check_informix_sessions,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s sessions",
+    # "group"               : "informix_sessions",
+    "default_levels_variable" : "informix_sessions_defaults",
+}
 # vim: tabstop=4 shiftwidth=4 expandtab

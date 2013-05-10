@@ -35,14 +35,16 @@
 # Default thresholds
 # default levels for *free* space. float: percent,
 # integer: MB.
-informix_logusage_default_levels = (30.0, 60.0)
+factory_settings["informix_logusage_defaults"] = {
+    "levels" : (30.0, 60.0)
+}
 
 def inventory_informix_logusage(info):
-    return [ (line[0], "informix_logusage_default_levels") for line in info if line[1].startswith('LOGUSAGE|') ]
+    return [ (line[0], {}) for line in info if line[1].startswith('LOGUSAGE|') ]
 
 def check_informix_logusage(item, params, info):
     status = 0
-    warn, crit = params
+    warn, crit = params["levels"]
     files = {
         "all" : 0,
         "backed_up" : 0,
@@ -107,5 +109,12 @@ def check_informix_logusage(item, params, info):
                  ("used", size['used'])]
     return (status, "OK" + infotext, perfdata)
 
-check_info['informix_logusage'] = (check_informix_logusage, "IDS %s logusage", 1, inventory_informix_logusage)
+check_info["informix_logusage"] = {
+    "inventory_function"  : inventory_informix_logusage,
+    "check_function"      : check_informix_logusage,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s logusage",
+    # "group"               : "informix_logusage",
+    "default_levels_variable" : "informix_logusage_defaults",
+}
 # vim: tabstop=4 shiftwidth=4 expandtab
