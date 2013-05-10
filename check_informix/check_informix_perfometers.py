@@ -28,7 +28,7 @@ def perfometer_check_check_informix_locks(row, check_command, perf_data):
 def perfometer_informix_dbspaces(row, check_command, perf_data):
     current = float(perf_data[0][1])
     used = float(perf_data[1][1])
-    max = float(perf_data[2][1])
+    max = float(perf_data[0][1])
     used_perc = used / max * 100
     curr_perc = (current / max * 100) - used_perc
     h = '<table><tr>'

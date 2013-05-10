@@ -23,7 +23,7 @@ $opt[1] = "--vertical-label 'GB' -l0 --title \"$title\" ";
 #
 $def[1] =  "DEF:current=$RRDFILE[1]:$DS[1]:MAX " ;
 $def[1] .= "DEF:used=$RRDFILE[2]:$DS[2]:MAX " ;
-$def[1] .= "DEF:max=$RRDFILE[3]:$DS[3]:MAX " ;
+$def[1] .= "DEF:max=$RRDFILE[1]:$DS[1]:MAX " ;
 $def[1] .= "CDEF:current_gb=current,1073741824.0,/ ";
 $def[1] .= "CDEF:max_gb=max,1073741824.0,/ ";
 $def[1] .= "CDEF:used_gb=used,1073741824.0,/ ";

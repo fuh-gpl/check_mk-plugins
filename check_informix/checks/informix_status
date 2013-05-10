@@ -64,10 +64,11 @@ def check_informix_status(item, params, info):
             ids_status_code = str(values[4])
             onstat_output = str(values[5]).split('--')
 
-            infotext = " - (server: %s, number: %s, directory: %s, version: %s)" % ( servername, servernum, informixdir, serverversion )
+            infotext = ""
             if ids_status_code in informix_status_onstat_codes:
                 ids_status_text, status = informix_status_onstat_codes[ids_status_code]
-                infotext += " status '%s'" % ids_status_text
+                infotext += " - status is %s" % ids_status_text
+            infotext += " (version: %s, server: %s, number: %s, directory: %s )" % ( serverversion, servername, servernum, informixdir )
 
             
             if len(onstat_output) >= 4:
