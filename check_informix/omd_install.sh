@@ -29,11 +29,12 @@ PATH_CHECK_PNP=$(grep 'Locally installed PNP templates' $TMPFILE | sed 's/^[^:]*
 PATH_CHECK_DOC=$(grep 'Locally installed documentation' $TMPFILE | sed 's/^[^:]*:[     ]*//')
  
 PATH_PERFOMETER=$PATH_CHECK_WEB/plugins/perfometer
+PATH_WATOPLUGIN=$PATH_CHECK_WEB/plugins/wato
 PATH_AGENT_PLUGINS=$PATH_CHECK_AGENTS/plugins
 
 
 for DIR in $PATH_CHECKS $PATH_CHECK_MAN $PATH_CHECK_AGENTS $PATH_CHECK_WEB $PATH_CHECK_PNP \
-	$PATH_CHECK_DOC $PATH_PERFOMETER $PATH_AGENT_PLUGINS; do
+	$PATH_CHECK_DOC $PATH_PERFOMETER $PATH_WATOPLUGIN $PATH_AGENT_PLUGINS; do
 	if [ ! -d $DIR  -o ! -w $DIR ]; then
 		echo "error: directory $DIR doesn't exist or ist not writable." >&2
 		exit 1
@@ -69,6 +70,11 @@ done
 for FILE in *perfometer*py; do
 	echo " $FILE"
 	install -m 644 $FILE $PATH_PERFOMETER/
+done
+
+for FILE in wato/*; do
+	echo " $FILE"
+	install -m 644 $FILE $PATH_WATOPLUGIN/
 done
 
 echo "installation complete"

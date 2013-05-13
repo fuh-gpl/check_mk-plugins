@@ -24,16 +24,16 @@ examples:
  # warning and 100 sessions for critical
  informix_sessions_defaults = { "levels" : ( 50, 100 ) }
 
- # Set warning to 100 sessions an critical to 200 sessions
+ # Set warning to 200 sessions an critical to 300 sessions
  # for hosts tagged as prod servers.
  check_parameters += [
-   ( { "levels" : (100, 200) }, [ 'prod' ], ALL_HOSTS, ["IDS .* sessions"] ),
+   ( { "levels" : (200, 300) }, [ 'prod' ], ALL_HOSTS, ["IDS .* sessions"] ),
  ]
 
 [parameters]
 parameters (dict):
 
- {"levels"}: A tuple containing the warn and crit levels for active database sessions.
+ {"levels"}: A tuple containing the warn and crit levels for active database sessions. Default is {(100, 200)}.
 
 [configuration]
 informix_sessions_defaults(dict): A dictionary with the optional keys mentioned in parameters.

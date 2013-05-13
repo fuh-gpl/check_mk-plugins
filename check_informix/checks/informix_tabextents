@@ -95,7 +95,7 @@ check_info["informix_tabextents"] = {
     "check_function"      : check_informix_tabextents,
     "has_perfdata"        : True,
     "service_description" : "IDS %s table extents",
-    # "group"               : "informix_tabextents",
+    "group"               : "informix_tabextents",
     "default_levels_variable" : "informix_tabextents_defaults",
 }
 # vim: tabstop=4 shiftwidth=4 expandtab

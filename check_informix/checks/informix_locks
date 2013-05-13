@@ -71,7 +71,7 @@ check_info["informix_locks"] = {
     "check_function"      : check_informix_locks,
     "has_perfdata"        : True,
     "service_description" : "IDS %s locks",
-    # "group"               : "informix_locks",
+    "group"               : "informix_locks",
     "default_levels_variable" : "informix_locks_defaults",
 }
 # vim: tabstop=4 shiftwidth=4 expandtab

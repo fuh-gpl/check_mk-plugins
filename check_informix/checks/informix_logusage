@@ -114,7 +114,7 @@ check_info["informix_logusage"] = {
     "check_function"      : check_informix_logusage,
     "has_perfdata"        : True,
     "service_description" : "IDS %s logusage",
-    # "group"               : "informix_logusage",
+    "group"               : "informix_logusage",
     "default_levels_variable" : "informix_logusage_defaults",
 }
 # vim: tabstop=4 shiftwidth=4 expandtab
