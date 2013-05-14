@@ -68,7 +68,8 @@ def check_informix_status(item, params, info):
             if ids_status_code in informix_status_onstat_codes:
                 ids_status_text, status = informix_status_onstat_codes[ids_status_code]
                 infotext += " - status is %s" % ids_status_text
-            infotext += " (version: %s, server: %s, number: %s, directory: %s )" % ( serverversion, servername, servernum, informixdir )
+            # infotext += " (version: %s, server: %s, number: %s, directory: %s )" % ( serverversion, servername, servernum, informixdir )
+            infotext += " (version: %s, directory: %s )" % ( serverversion, informixdir )
 
             
             if len(onstat_output) >= 4:
@@ -80,5 +81,14 @@ def check_informix_status(item, params, info):
     return ( status, nagios_state_names[status] +  infotext  )
 
 # note: 'IDS %s  status' has two blanks to keep the Status check on top 
-check_info['informix_status'] = (check_informix_status, "IDS %s  status", 1, inventory_informix_status)
+check_info["informix_status"] = {
+    "inventory_function"  : inventory_informix_status,
+    "check_function"      : check_informix_status,
+    "has_perfdata"        : True,
+    "service_description" : "IDS %s  status",
+    # "group"               : "informix_status",
+    # "default_levels_variable" : "informix_status_default",
+}
+
+
 # vim: tabstop=4 shiftwidth=4 expandtab

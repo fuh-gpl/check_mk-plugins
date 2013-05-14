@@ -100,13 +100,13 @@ def check_informix_dbspaces(item, params, info):
             }
 
             # Dbspace fields - same for all chunks in one dbspace
-            dbspace_type = 'Dbspace'
+            dbspace_type = 'dbspace'
             if dbspace['flags'] & 0x0010:
-                dbspace_type = 'Blobspace'
+                dbspace_type = 'blobspace'
             elif dbspace['flags'] & 0x8000:
-                dbspace_type = 'Sbspace'
+                dbspace_type = 'sbspace'
             elif dbspace['is_temp']:
-                dbspace_type = 'Tempspace'
+                dbspace_type = 'tempspace'
 
             
             # chunk information
@@ -146,7 +146,7 @@ def check_informix_dbspaces(item, params, info):
         return (3, "UNKNOWN" + " - dbspace information not available" )
 
     dbspace_used = dbspace_size - dbspace_free
-    infotext = " - type %s %s, size %s, dbspace_used %s" % \
+    infotext = " - %s %s size %s, used %s" % \
        (mirror_info,
         dbspace_type,
         get_bytes_human_readable(dbspace_size),
@@ -174,10 +174,6 @@ def check_informix_dbspaces(item, params, info):
         else:
             status = max(1, status)
 
-    infotext += " (levels at %s/%s)" % ( get_bytes_human_readable(warn), get_bytes_human_readable(crit))
-    perfdata = [ ("size", dbspace_size, dbspace_size - warn, dbspace_size - crit),
-                 ("used", dbspace_used) ]
-
     # if num_files != 1 or num_avail != 1:
     infotext += ", %d data files" % (num_files)
     if num_files != num_avail:
@@ -190,6 +186,10 @@ def check_informix_dbspaces(item, params, info):
             infotext += " (only %d avail)" % ( num_mirror_avail)
             status = max(1, status)
 
+    infotext += " (levels at %s/%s)" % ( get_bytes_human_readable(warn), get_bytes_human_readable(crit))
+    perfdata = [ ("size", dbspace_size, dbspace_size - warn, dbspace_size - crit),
+                 ("used", dbspace_used) ]
+
     return (status, nagios_state_names[status] + infotext, perfdata)
 
 
@@ -198,7 +198,7 @@ check_info["informix_dbspaces"] = {
     "check_function"      : check_informix_dbspaces,
     "has_perfdata"        : True,
     "service_description" : "IDS %s dbspace",
-    # "group"               : "informix_dbspaces",
+    "group"               : "informix_dbspaces",
     "default_levels_variable" : "informix_dbspaces_defaults",
 }
 # vim: tabstop=4 shiftwidth=4 expandtab

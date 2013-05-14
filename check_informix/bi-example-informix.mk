@@ -6,21 +6,27 @@ aggregations += [
 ]
 
 aggregation_rules["db_check_informix"] = (
-  "Informix IDS - $DB$",
+  "IBM Informix database $DB$",
   [ "HOST", "DB" ],
   "worst",
   [
       ( "$HOST$", ".*IDS $DB$[ .]" ),
+      # if the servername is part of the message files:
+      ( "$HOST$", ".*LOG.*online.log.$DB$" ),
+      ( "$HOST$", ".*LOG.*online.$DB$.log" ),
+      ( "$HOST$", ".*LOG.*online.con.$DB$" ),
+      ( "$HOST$", ".*LOG.*online.$DB$.con" ),
   ]
 )
 
 ### Datenbanken allgemein
 aggregation_rules["db_informix"] = (
-  "Informix Databases",
+  "IBM Informix databases",
   [ "HOST" ],
   "worst",
   [
       ( FOREACH_SERVICE, "$HOST$", "IDS ([^ ]*)  status", "db_check_informix", ["$HOST$", "$1$" ] ),
       ( "$HOST$", ".*LOG.*online.log" ),
+      ( "$HOST$", ".*LOG.*online.con" ),
   ]
 )

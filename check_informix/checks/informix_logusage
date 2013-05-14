@@ -91,10 +91,10 @@ def check_informix_logusage(item, params, info):
     else:
         crit *= 1024 * 1024
 
-    infotext = " - logusage, %d files, size %s, used %s (levels at %s/%s)" % \
-        ( files['all'],
-          get_bytes_human_readable(size['all']), 
+    infotext = " - logical log size %s, used %s, %d files (levels at %s/%s)" % \
+        ( get_bytes_human_readable(size['all']), 
           get_bytes_human_readable(size['used']), 
+          files['all'],
           get_bytes_human_readable(warn), 
           get_bytes_human_readable(crit) )
 
